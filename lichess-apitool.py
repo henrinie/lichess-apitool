@@ -24,7 +24,7 @@ def tv():
         tmp = gettvurlonline((apiurlusr + item), item)
         if tmp != '':
             if not first:
-                message += "* "+ tmp
+                message += "* "+ tmp + " "
             else:
                 message += tmp + " "
                 first = False
@@ -80,7 +80,9 @@ def readfiletolist(file):
     
 def gettvurlonline(fullurl, username):
     """Check if user is online"""
-    if userisonline(fullurl) == True:
+    # 1. Make sure that we are not trying with empty username
+    # 2. Make sure that the user is online
+    if len(username) > 0 and userisonline(fullurl) == True:
         return gettvurl(username)
     else:
         return ''
