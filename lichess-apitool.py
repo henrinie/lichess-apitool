@@ -20,14 +20,16 @@ def tv():
     first = True
     
     for item in list:
-        # Insert the 'tv url' of a player that is playing
-        tmp = gettvurlonline((apiurlusr + item), item)
-        if tmp != '':
-            if not first:
-                message += "* "+ tmp + " "
-            else:
-                message += tmp + " "
-                first = False
+        # Make sure that the item is not an empty line
+        if item != '':
+            # Insert the 'tv url' of a player that is playing
+            tmp = gettvurlonline((apiurlusr + item), item)
+            if tmp != '':
+                if not first:
+                    message += "* "+ tmp + " "
+                else:
+                    message += tmp + " "
+                    first = False
 
     if message == "":
         return 'No activity on lichess'
@@ -71,8 +73,10 @@ def readfiletolist(file):
         with open(file, 'r') as file:
             # Go through the file line by line
             for line in file:
-                # Append to list, get rid of possible newlines that come from the file '\n'
-                list.append(line.rstrip('\n'))
+                # Make sure that the line does not start with # (hash) or that line is not empty string
+                if not line.lstrip().startswith('#') or line == '':
+                    # Append to list, get rid of possible newlines that come from the file '\n'
+                    list.append(line.rstrip('\n'))
         return list              
     except IOError:
         sys.exit('Error: Cannot open file ' + file)
@@ -80,7 +84,7 @@ def readfiletolist(file):
     
 def gettvurlonline(fullurl, username):
     """Check if user is online"""
-    # 1. Make sure that we are not trying with empty username
+    # 1. Make sure that we are not trying with empty username (extra precaution)
     # 2. Make sure that the user is online
     if len(username) > 0 and userisonline(fullurl) == True:
         return gettvurl(username)
