@@ -1,2 +1,0 @@
-# Here you can add the usernames you want to include in the api queries.
-# Add only one username per line.

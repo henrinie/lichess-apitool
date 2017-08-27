@@ -1,149 +1,153 @@
 import json
-import urllib2
 import sys
+try:
+    # For Python 3.0 and later
+    from urllib.request import urlopen, Request, URLError
+except ImportError:
+    # Fall back to Python 2's urllib2
+    from urllib2 import urlopen, Request, URLError
 
-"""This script is used to query the lichess API"""
+"""This script can be used to query the lichess API."""
+"""Results are returned in plain text."""
 """Author: Henri Nieminen, henri.nieminen@gmail.com"""
-"""Version: 0.01"""
+"""Version: 0.02"""
 
-apiurlusr = 'http://en.lichess.org/api/user/'
-linicks = 'linicks.txt'
+api_url_user = 'http://en.lichess.org/api/user/'
+lichess_users = 'lichess-users.txt'
 
 
-def tv():
-    """Returns all the tv urls of listed lichess players that are playing"""
-    #
-    #  <@MJXII_ICE> or better still: PLAYING (blah); SPECTATING: (blah); ONLINE: (blah)
-    #
-    message = ""
-    list = readfiletolist(linicks)
+def tv_urls():
+    """
+    Returns all the tv urls of users listed in lichess-users.txt that are online.
+    """
+    #  TODO: <@MJXII_ICE> or better still: PLAYING (blah); SPECTATING: (blah); ONLINE: (blah)
+    message = list()
+    user_list = read_file_to_list(lichess_users)
+    if not user_list:
+        return 'No users listed in lichess-users.txt'
     first = True
-    
-    for item in list:
+    for item in user_list:
         # Make sure that the item is not an empty line
-        if item != '':
+        if item.strip() != '':
             # Insert the 'tv url' of a player that is playing
-            tmp = gettvurlonline((apiurlusr + item), item)
-            if tmp != '':
+            tmpstr = get_tv_url_online((api_url_user + item), item)
+            if tmpstr != '':
                 if not first:
-                    message += "* "+ tmp + " "
+                    message.append("* " + tmpstr + " ")
                 else:
-                    message += tmp + " "
+                    message.append(tmpstr + " ")
                     first = False
 
-    if message == "":
-        return 'No activity on lichess'
+    if not len(message) > 0:
+        return 'No activity on lichess.'
     else:
-        return message
+        return str().join(message)
 
 
-def help():
+def help_text():
     """Return the list of commands as a string"""
     str = "Commands: "
-    for s in commandlist:
+    for s in commands:
         str += '.' + s + ' '
     return str
 
 
-def top():
-    """Returns a string presentation of players with order by highest ranking"""
-    # Currently returns blitz games top list
+def ranking():
+    """
+    Returns a string presentation of players with order by highest ranking.
+    Currently returns blitz game rankings.
+    """
     msg = ""
-    tuplelist = []
-    playerlist = readfiletolist(linicks)
-    
-    for player in playerlist:
-        json = getapiresponse((apiurlusr + player), 'perfs')
-        tuplelist.append( (player, json['blitz']['rating']) )
+    ranking_list = []
+    user_list = read_file_to_list(lichess_users)
+    if not user_list:
+        return 'No users listed in lichess-users.txt'
+    for user in user_list:
+        jsondata = get_api_response((api_url_user + user), 'perfs')
+        ranking_list.append((user, jsondata['blitz']['rating']))
     # Sort the list, reverse order (from highest to smallest)    
-    tuplelist.sort(reverse=True, key=lambda tup: tup[1])
-    
-    i = 1
-    for item in tuplelist:
-        msg += str(i) + '.' + str(item[0]) + ': ' + str(item[1]) + ' \ '
-        i+=1
+    ranking_list.sort(reverse=True, key=lambda tup: tup[1])
+
+    for i, item in enumerate(ranking_list):
+        # i+1 to start from 1
+        msg += str(i+1) + '.' + str(item[0]) + ': ' + str(item[1]) + ' \ '
     return msg
     
     
-def readfiletolist(file):
-    """Reads a given filename line by line and returns it as a list"""
-    list = []
+def read_file_to_list(file_path):
+    """
+    Reads a given file path line by line and returns it as a list.
+    """
+    contents = list()
     try:
-        # Open the file for reading
-        with open(file, 'r') as file:
-            # Go through the file line by line
+        with open(file_path, 'r') as file:
             for line in file:
                 # Make sure that the line does not start with # (hash) or that line is not empty string
                 if not line.lstrip().startswith('#') or line == '':
-                    # Append to list, get rid of possible newlines that come from the file '\n'
-                    list.append(line.rstrip('\n'))
-        return list              
+                    # Remove newlines (\n) at the end.
+                    contents.append(line.rstrip('\n'))
+        return contents
     except IOError:
-        sys.exit('Error: Cannot open file ' + file)
+        sys.exit('Error: Cannot open file ' + file_path)
     
     
-def gettvurlonline(fullurl, username):
-    """Check if user is online"""
-    # 1. Make sure that we are not trying with empty username (extra precaution)
-    # 2. Make sure that the user is online
-    if len(username) > 0 and userisonline(fullurl) == True:
-        return gettvurl(username)
+def get_tv_url_online(full_url, username):
+    """
+    Check if user is online:
+    1. Make sure that we are not trying with empty username (extra precaution)
+    2. Make sure that the user is online
+    """
+    if len(username) > 0 and user_is_online(full_url):
+        return get_tv_url(username)
     else:
         return ''
 
 
-def userisonline(fullurl):
-    
-    if getapiresponse(fullurl, 'online') == False:
+def user_is_online(full_url):
+    if get_api_response(full_url, 'online'):
         return False
     else:
         return True
 
 
-def gettvurl(username):
-    return 'http://lichess.org/@/' + username + '/tv'
+def get_tv_url(username):
+    return 'http://lichess.org/@/%s/tv' % username
 
 
-def getapiresponse(url, item):
-    response = getdata(url)
+def get_api_response(url, item):
+    response = get_data(url)
     data = response.read()
     jsondata = json.loads(data)
-    return jsondata[item]    
+    return jsondata[item]
 
 
-def getdata(url):
-    req = urllib2.Request(url, headers = {'Accept' : 'application/json'})
+def get_data(url):
+    req = Request(url, headers={'Accept': 'application/json'})
     try:
-        return urllib2.urlopen(req)
-    except:
+        return urlopen(req)
+    except URLError:
         sys.exit('Error: Cannot open the url')
    
         
-def runprog(arg):
-    """This method controls everything this script does"""
+def run(command):
+    """Run command."""
+    try:
+        return commands[command]()
+    except KeyError:
+        return "Error: Command '%s' does not exist." % command
 
-    """Iterate through the list of commands,
-    if argv equals to something in the list, run corresponding function"""
-    for comm in commandlist:
-        if arg == comm:
-            return commandlist[comm]()
-    # If the arg was not in list of commands, return error        
-    return """Error: Command '""" + arg + """' does not exist'"""
 
-###################    
-### Main begins ###
-###################
-def main(arvg):
-    # Check that argv[1] is set, run with argv if it exists
-    if len(sys.argv) >= 2:
-        print runprog(sys.argv[1])
-    else:
-        print 'Error: Missing argument'
+# ### Main
+def main():
+    try:
+        print(run(sys.argv[1]))
+    except IndexError:
+        print('Error: Missing argument')
+        print(help_text())
 
-################
-### Run main ###
-################        
-if __name__ == "__main__":
+
+# ### Run main
+if __name__ == '__main__':
     # List of commands this script runs when delivered in argv[1]
-    commandlist = {'help': help, 'tv': tv, 'top':top}
-    main(sys.argv[1:])
+    commands = {'help': help_text, 'tv': tv_urls, 'top': ranking, }
+    main()
